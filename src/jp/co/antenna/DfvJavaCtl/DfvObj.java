@@ -178,11 +178,75 @@ public class DfvObj {
      * @throws jp.co.antenna.DfvJavaCtl.DfvException
      */
     public void render (InputStream src, OutputStream dst, String outDevice) throws DfvException {
-        if (this.messageListener != null)
-            this.messageListener.onMessage(4, 0, "render() is not implemented yet.");
-        throw new DfvException(4, 0, "render() is not implemented yet.");
+	// can't use Xfo alternate library render method because SBC
+	// and Formatter will produce corrupt pdfs as a result of redirecting
+	// stream data
+
+	byte buffer[] = new byte[4196];
+	File inTmpFile = null;
+	File outTmpFile = null;
+
+	try {
+	    inTmpFile = File.createTempFile("sbcin", "");
+	    FileOutputStream st = new FileOutputStream(inTmpFile);
+	    while (src.read(buffer) > 0) {
+		st.write(buffer);
+	    }
+	    st.close();
+
+	    outTmpFile = File.createTempFile("sbcout", "");
+	
+	    String uriOrig = argGet("-d");
+	    String outFilePathOrig = argGet("-o");
+	    String printerNameOrig = argGet("-p");
+
+	    setDocumentURI(inTmpFile.getAbsolutePath());
+	    setOutputFilePath(outTmpFile.getAbsolutePath());
+	    setPrinterName(outDevice);
+
+	    execute();
+
+	    argSet("-d", uriOrig);
+	    argSet("-o", outFilePathOrig);
+	    argSet("-p", printerNameOrig);
+
+	    FileInputStream istr = new FileInputStream(outTmpFile);
+	    while (istr.read(buffer) > 0) {
+		dst.write(buffer);
+	    }
+	    istr.close();
+	} catch (IOException e) {
+	    throw new DfvException(4, 0, "couldn't create temporary file: " + e.getMessage());
+	} finally {
+	    inTmpFile.delete();
+	    outTmpFile.delete();
+	}
     }
-    
+
+    String argGet (String key) {
+	if (key == null  ||  key.length() <= 0) {
+	    return null;
+	}
+	if (this.args.containsKey(key)) {
+	    return this.args.get(key);
+	} else {
+	    return null;
+	}
+    }
+
+    void argSet (String key, String value) {
+	if (key == null) {
+	    return;
+	}
+
+	if (this.args.containsKey(key)) {
+	    this.args.remove(key);
+	}
+	if (value != null  &&  value.length() > 0) {
+	    this.args.put(key, value);
+	}
+    }
+
     /**
      * Set the URI of XML document to be formatted.
      * <br>If specified "@STDIN", XML document reads from stdin. The document that is read from stdin is assumed to be FO. 
