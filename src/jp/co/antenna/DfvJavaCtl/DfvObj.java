@@ -21,7 +21,26 @@ public class DfvObj {
     public static final int S_PDF_EMBALLFONT_PART = 0;
     public static final int S_PDF_EMBALLFONT_ALL = 1;
     public static final int S_PDF_EMBALLFONT_BASE14 = 2;
-    
+
+    public static final int S_PDF_VERSION_13 = 0;
+    public static final int S_PDF_VERSION_14 = 1;
+    public static final int S_PDF_VERSION_15 = 2;
+    public static final int S_PDF_VERSION_16 = 3;
+    public static final int S_PDF_VERSION_17 = 4;
+    // A_1a_2005  not in sbc
+    public static final int S_PDF_VERSION_A_1b_2005 = 400;
+
+    /* not in Server Based Converter */
+    /*
+    public static final int S_PDF_VERSION_A_1a_2005 = 200;
+
+    public static final int S_PDF_VERSION_X_1a_2001 = 101;
+    public static final int S_PDF_VERSION_X_1a_2003 = 104;
+    public static final int S_PDF_VERSION_X_2_2003 = 105;
+    public static final int S_PDF_VERSION_X_3_2002 = 103;
+    public static final int S_PDF_VERSION_X_3_2003 = 106;
+    */
+
     // Attributes
     private String executable;
     private Runtime r;
@@ -99,7 +118,7 @@ public class DfvObj {
 			cmdArray.add(this.logPath);
         }
         try {
-			String[] s = new String[0];
+	    String[] s = new String[0];
             process = this.r.exec(cmdArray.toArray(s));
             if (this.logPath == null) {
                 try {
@@ -113,9 +132,10 @@ public class DfvObj {
         if (exitCode != 0) {
             if (errorParser != null && errorParser.LastErrorCode != 0) {
                 this.lastError = new DfvException(errorParser.LastErrorLevel, errorParser.LastErrorCode, errorParser.LastErrorMessage);
-				throw this.lastError;
+		throw this.lastError;
             } else {
-                throw new DfvException(4, 0, "Failed to parse last error. Exit code: " + exitCode);
+                //throw new DfvException(4, 0, "Failed to parse last error. Exit code: " + exitCode);
+                throw new DfvException(4, 0, "Exit code: " + exitCode + "\n" + errorParser.LastErrorMessage);
             }
         }
     }
@@ -291,6 +311,36 @@ public class DfvObj {
     public void setPdfImageCompression (int compressionMethod) {
         // fill it in
     }
+
+    public void setPdfVersion (int newVal) {
+        String opt = "-pdfver";
+        String version = null;
+        if (this.args.containsKey(opt))
+            this.args.remove(opt);
+        switch (newVal) {
+            case S_PDF_VERSION_13:
+                version = "PDF1.3";
+                break;
+            case S_PDF_VERSION_14:
+                version = "PDF1.4";
+                break;
+            case S_PDF_VERSION_15:
+                version = "PDF1.5";
+                break;
+            case S_PDF_VERSION_16:
+                version = "PDF1.6";
+                break;
+            case S_PDF_VERSION_17:
+                version = "PDF1.7";
+                break;
+            case S_PDF_VERSION_A_1b_2005:
+                version = "PDF/A-1b:2005";
+                break;
+        }
+        if (version != null)
+            this.args.put(opt, version);
+    }
+    
     
     public void setPrinterName (String prn) {
         String opt = "-p";
@@ -349,8 +399,12 @@ class ErrorParser extends Thread {
     public void run () {
         try {
             // stuff
+	    boolean errorParsed = false;
             BufferedReader reader = new BufferedReader(new InputStreamReader(this.ErrorStream));
             String line = reader.readLine();
+	    String fullMessage;
+	    fullMessage = line + "\n";
+
             while (line != null) {
                 if (line.startsWith("SBCCmd :")) {
                     if (line.contains("Error Level")) {
@@ -367,9 +421,12 @@ class ErrorParser extends Thread {
                             this.LastErrorLevel = ErrorLevel;
                             this.LastErrorCode = ErrorCode;
                             this.LastErrorMessage = ErrorMessage;
-							if (this.listener != null)
-								this.listener.onMessage(ErrorLevel, ErrorCode, ErrorMessage);
-                        } catch (Exception e) {}
+			    if (this.listener != null)
+				this.listener.onMessage(ErrorLevel, ErrorCode, ErrorMessage);
+			    errorParsed = true;
+                        } catch (Exception e) {
+
+			}
                     }
                 } else if (line.startsWith("Invalid license.")) {
 					int ErrorLevel = 4;
@@ -382,9 +439,25 @@ class ErrorParser extends Thread {
 					this.LastErrorMessage = ErrorMessage;
 					if (this.listener != null)
 						this.listener.onMessage(ErrorLevel, ErrorCode, ErrorMessage);
-				}
+					errorParsed = true;
+					//break;
+		} else {
+		    // unknown error
+		}
                 line = reader.readLine();
+		if (line != null) {
+		    fullMessage += line + "\n";
+		}
             }
-        } catch (Exception e) {}
+	    if (!errorParsed) {
+		this.LastErrorCode = 0;
+		this.LastErrorMessage = fullMessage;
+		if (this.listener != null) {
+		    //this.listener.onMessage(-1, -1, this.LastErrorMessage);
+		}
+	    }
+        } catch (Exception e) {
+
+	}
     }
 }
