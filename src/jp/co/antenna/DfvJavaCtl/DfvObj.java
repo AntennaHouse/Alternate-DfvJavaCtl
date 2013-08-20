@@ -118,6 +118,7 @@ public class DfvObj {
 			cmdArray.add(this.logPath);
         }
         try {
+	    //System.out.println("cmd " + cmdArray.toString());
 	    String[] s = new String[0];
             process = this.r.exec(cmdArray.toArray(s));
             if (this.logPath == null) {
@@ -185,12 +186,13 @@ public class DfvObj {
 	byte buffer[] = new byte[4196];
 	File inTmpFile = null;
 	File outTmpFile = null;
+	int len;
 
 	try {
 	    inTmpFile = File.createTempFile("sbcin", "");
 	    FileOutputStream st = new FileOutputStream(inTmpFile);
-	    while (src.read(buffer) > 0) {
-		st.write(buffer);
+	    while ((len = src.read(buffer)) > 0) {
+		st.write(buffer, 0, len);
 	    }
 	    st.close();
 
@@ -211,8 +213,8 @@ public class DfvObj {
 	    argSet("-p", printerNameOrig);
 
 	    FileInputStream istr = new FileInputStream(outTmpFile);
-	    while (istr.read(buffer) > 0) {
-		dst.write(buffer);
+	    while ((len = istr.read(buffer)) > 0) {
+		dst.write(buffer, 0, len);
 	    }
 	    istr.close();
 	} catch (IOException e) {
